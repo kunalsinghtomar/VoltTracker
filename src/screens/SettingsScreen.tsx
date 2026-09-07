@@ -19,15 +19,37 @@ function toDateInputStr(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
+function updateDate(value: string, current: Date, setDate: (date: Date) => void) {
+  const next = new Date(`${value}T00:00:00`);
+  if (!Number.isNaN(next.getTime())) setDate(next);
+  else if (!value) setDate(current);
+}
+
+function toTimeInputStr(d: Date) {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function WebDateInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return React.createElement('input', {
+    type: 'date',
+    value,
+    onChange: (event: { target: { value: string } }) => onChange(event.target.value),
+    style: StyleSheet.flatten(styles.input),
+  });
+}
+
 export default function SettingsScreen() {
-  const { state, setSemesterRange, setRequiredPercent, setReminderTime, replaceState } = useApp();
+  const { state, ready, setSemesterRange, setRequiredPercent, setReminderTime, replaceState } = useApp();
 
   const [startDate, setStartDate] = useState(state.semesterStartDate ? new Date(state.semesterStartDate) : new Date());
   const [endDate, setEndDate] = useState(state.semesterEndDate ? new Date(state.semesterEndDate) : new Date());
+  const [startDateInput, setStartDateInput] = useState(toDateInputStr(startDate));
+  const [endDateInput, setEndDateInput] = useState(toDateInputStr(endDate));
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [targetPercent, setTargetPercent] = useState(String(state.requiredAttendancePercent));
   const [reminderTime, setReminderTimeLocal] = useState(state.reminderTime ? new Date(`1970-01-01T${state.reminderTime}:00`) : new Date());
+  const [reminderTimeInput, setReminderTimeInput] = useState(toTimeInputStr(reminderTime));
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Save academic settings and schedule/replace the daily native reminder.
@@ -49,11 +71,27 @@ export default function SettingsScreen() {
     if (exporting) return;
     setExporting(true);
     try {
+      const backup = JSON.stringify(state, null, 2);
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([backup], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'volttrack_backup.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        Alert.alert('Backup downloaded', 'Your VoltTrack backup file is ready.');
+        return;
+      }
+
       const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
       if (!baseDir) throw new Error('No writable directory available on this device.');
 
       const path = baseDir + 'volttrack_backup.json';
-      await FileSystem.writeAsStringAsync(path, JSON.stringify(state, null, 2), {
+      await FileSystem.writeAsStringAsync(path, backup, {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
@@ -79,39 +117,40 @@ export default function SettingsScreen() {
     if (importing) return;
     setImporting(true);
     try {
-      // '*/*' avoids Android file pickers that don't correctly tag .json mime types
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
+      let content: string;
 
-      const asset = result.assets[0];
-      if (asset.name && !asset.name.toLowerCase().endsWith('.json')) {
-        const proceed = await new Promise<boolean>((resolve) => {
-          Alert.alert(
-            'Not a .json file',
-            `"${asset.name}" doesn't look like a VoltTrack backup. Try anyway?`,
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Try anyway', onPress: () => resolve(true) },
-            ]
-          );
+      if (Platform.OS === 'web') {
+        const file = await new Promise<File | null>((resolve) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.json,application/json';
+          input.onchange = () => resolve(input.files?.[0] || null);
+          input.click();
         });
-        if (!proceed) return;
+        if (!file) return;
+        content = await file.text();
+      } else {
+      // '*/*' avoids Android file pickers that don't correctly tag .json mime types
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'application/json',
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || !result.assets?.[0]) return;
+
+        const asset = result.assets[0];
+        content = await FileSystem.readAsStringAsync(asset.uri);
       }
 
-      const content = await FileSystem.readAsStringAsync(asset.uri);
       const parsed = JSON.parse(content);
-      if (!parsed || typeof parsed !== 'object' || !parsed.logs) {
-        throw new Error('This file is not a valid VoltTrack backup (missing "logs" data).');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof parsed.logs !== 'object' || Array.isArray(parsed.logs)) {
+        throw new Error('This file is not a valid VoltTrack backup.');
       }
       const next: AppState = {
         ...DEFAULT_STATE,
         ...parsed,
-        logs: parsed.logs || {},
-        timetable: parsed.timetable || {},
-        cancellations: parsed.cancellations || {},
+        logs: parsed.logs,
+        timetable: parsed.timetable && typeof parsed.timetable === 'object' ? parsed.timetable : {},
+        cancellations: parsed.cancellations && typeof parsed.cancellations === 'object' ? parsed.cancellations : {},
       };
       replaceState(next);
       Alert.alert('Restored', 'Data backup restored!');
@@ -128,34 +167,54 @@ export default function SettingsScreen() {
       <View style={{ gap: 12 }}>
         <Text style={styles.sectionTitle}>Academic Control Center</Text>
         <GlassCard style={{ padding: 18, gap: 14 }}>
-          <View style={styles.dateRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Semester Start</Text>
-              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
-                <Text style={styles.dateBtnText}>{toDateInputStr(startDate)}</Text>
-              </TouchableOpacity>
+          {Platform.OS === 'web' ? (
+            <View style={styles.dateRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Semester Start</Text>
+                <WebDateInput
+                  value={startDateInput}
+                  onChange={(value) => { setStartDateInput(value); updateDate(value, startDate, setStartDate); }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Semester End</Text>
+                <WebDateInput
+                  value={endDateInput}
+                  onChange={(value) => { setEndDateInput(value); updateDate(value, endDate, setEndDate); }}
+                />
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Semester End</Text>
-              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
-                <Text style={styles.dateBtnText}>{toDateInputStr(endDate)}</Text>
-              </TouchableOpacity>
+          ) : (
+            <View>
+              <View style={styles.dateRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Semester Start</Text>
+                  <TouchableOpacity style={styles.dateBtn} onPress={() => setShowStartPicker(true)}>
+                    <Text style={styles.dateBtnText}>{toDateInputStr(startDate)}</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Semester End</Text>
+                  <TouchableOpacity style={styles.dateBtn} onPress={() => setShowEndPicker(true)}>
+                    <Text style={styles.dateBtnText}>{toDateInputStr(endDate)}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {showStartPicker && (
+                <DateTimePicker
+                  value={startDate}
+                  mode="date"
+                  onChange={(_, d) => { setShowStartPicker(Platform.OS === 'ios'); if (d) setStartDate(d); }}
+                />
+              )}
+              {showEndPicker && (
+                <DateTimePicker
+                  value={endDate}
+                  mode="date"
+                  onChange={(_, d) => { setShowEndPicker(Platform.OS === 'ios'); if (d) setEndDate(d); }}
+                />
+              )}
             </View>
-          </View>
-
-          {showStartPicker && (
-            <DateTimePicker
-              value={startDate}
-              mode="date"
-              onChange={(_, d) => { setShowStartPicker(Platform.OS === 'ios'); if (d) setStartDate(d); }}
-            />
-          )}
-          {showEndPicker && (
-            <DateTimePicker
-              value={endDate}
-              mode="date"
-              onChange={(_, d) => { setShowEndPicker(Platform.OS === 'ios'); if (d) setEndDate(d); }}
-            />
           )}
 
           <View>
@@ -175,12 +234,24 @@ export default function SettingsScreen() {
               <Text style={[styles.label, { color: colors.pink }]}>Daily App Reminder Time</Text>
               <Ionicons name="notifications-outline" size={14} color={colors.pink} />
             </View>
-            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.dateBtnText}>
-                {String(reminderTime.getHours()).padStart(2, '0')}:{String(reminderTime.getMinutes()).padStart(2, '0')}
-              </Text>
-            </TouchableOpacity>
-            {showTimePicker && (
+            {Platform.OS === 'web' ? (
+              <TextInput
+                style={styles.input}
+                value={reminderTimeInput}
+                onChangeText={(value) => {
+                  setReminderTimeInput(value);
+                  const next = new Date(`1970-01-01T${value}:00`);
+                  if (!Number.isNaN(next.getTime())) setReminderTimeLocal(next);
+                }}
+                placeholder="HH:mm"
+                placeholderTextColor={colors.textMuted}
+              />
+            ) : (
+              <TouchableOpacity style={styles.dateBtn} onPress={() => setShowTimePicker(true)}>
+                <Text style={styles.dateBtnText}>{toTimeInputStr(reminderTime)}</Text>
+              </TouchableOpacity>
+            )}
+            {Platform.OS !== 'web' && showTimePicker && (
               <DateTimePicker
                 value={reminderTime}
                 mode="time"
@@ -202,11 +273,11 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Data Backup</Text>
         <GlassCard style={{ padding: 18 }}>
           <View style={styles.backupRow}>
-            <TouchableOpacity style={[styles.backupBtn, exporting && styles.backupBtnDisabled]} onPress={handleExport} disabled={exporting}>
+            <TouchableOpacity style={[styles.backupBtn, (!ready || exporting) && styles.backupBtnDisabled]} onPress={handleExport} disabled={!ready || exporting}>
               <Ionicons name="download-outline" size={16} color={colors.lavender} />
               <Text style={styles.backupBtnText}>{exporting ? 'Exporting…' : 'Backup'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.backupBtn, importing && styles.backupBtnDisabled]} onPress={handleImport} disabled={importing}>
+            <TouchableOpacity style={[styles.backupBtn, (!ready || importing) && styles.backupBtnDisabled]} onPress={handleImport} disabled={!ready || importing}>
               <Ionicons name="cloud-upload-outline" size={16} color={colors.pink} />
               <Text style={styles.backupBtnText}>{importing ? 'Restoring…' : 'Restore'}</Text>
             </TouchableOpacity>
@@ -230,6 +301,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B0813', borderWidth: 1, borderColor: 'rgba(255,138,174,0.2)',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#fff', fontSize: 13,
   },
+  dateInput: { flex: 1 },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
   reminderLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   helperText: { fontSize: 10, color: colors.textMuted, marginTop: 8 },

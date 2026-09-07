@@ -41,11 +41,9 @@ export interface Stats {
   safeBunksLeft: number;
 }
 
-// Pick day mode or lecture mode, and gracefully fall back when dates are invalid.
+// Attendance always uses one unit per calendar day. The timetable is planning data only.
 export function computeStats(state: AppState): Stats {
-  const hasTimetable = Object.values(state.timetable).some((arr) => arr && arr.length > 0);
-
-  // Fallback: no date range set — mirror original web app's 90-day default, day-based only
+  // No date range set — mirror the original web app's 90-day default.
   if (!state.semesterStartDate || !state.semesterEndDate) {
     return computeDayBased(state, null, null);
   }
@@ -56,7 +54,7 @@ export function computeStats(state: AppState): Stats {
     return computeDayBased(state, null, null);
   }
 
-  return hasTimetable ? computeLectureBased(state, start, end) : computeDayBased(state, start, end);
+  return computeDayBased(state, start, end);
 }
 
 // Original behavior: one attendance unit equals one semester day.

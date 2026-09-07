@@ -1,4 +1,4 @@
-// Timetable tab: creates the recurring weekly lecture schedule used by lecture mode.
+// Timetable tab: stores recurring classes for planning and reference only.
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,8 +29,8 @@ export default function TimetableScreen() {
     <ScrollView contentContainerStyle={{ paddingBottom: 20, gap: 14 }} showsVerticalScrollIndicator={false}>
       <Text style={styles.sectionTitle}>Weekly Timetable</Text>
       <Text style={styles.helper}>
-        Add your recurring lectures per day. Once set, VoltTrack switches to lecture-wise attendance —
-        and you'll get a per-lecture "Class Cancelled" toggle when logging any date.
+        Add recurring classes and times for each day. This timetable is separate from attendance tracking
+        and never changes your attendance calculation.
       </Text>
 
       <View style={styles.dayTabs}>

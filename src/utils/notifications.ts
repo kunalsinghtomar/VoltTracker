@@ -18,6 +18,8 @@ const REMINDER_ID = 'volttrack-daily-reminder';
 
 export async function scheduleDailyReminder(timeString: string): Promise<void> {
   // Clear any existing reminder first, then request permission and schedule the new time.
+  if (Platform.OS === 'web') return;
+
   await Notifications.cancelScheduledNotificationAsync(REMINDER_ID).catch(() => {});
 
   if (!timeString) return;

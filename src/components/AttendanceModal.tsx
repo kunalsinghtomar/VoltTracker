@@ -1,11 +1,9 @@
 // Modal for recording a day's status and cancelling individual timetable lectures.
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, TextInput, StyleSheet, Switch, ScrollView } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { useApp } from '../context/AppContext';
-import { getWeekdayIndex, formatDateKey } from '../utils/calculations';
-import { WEEKDAY_LABELS } from '../types';
 
 export default function AttendanceModal({
   dateKey,
@@ -14,7 +12,7 @@ export default function AttendanceModal({
   dateKey: string | null;
   onClose: () => void;
 }) {
-  const { state, setDayLog, toggleLectureCancelled } = useApp();
+  const { state, setDayLog } = useApp();
   const [reason, setReason] = useState('');
   const [showReasonBox, setShowReasonBox] = useState(false);
 
@@ -26,11 +24,7 @@ export default function AttendanceModal({
 
   if (!dateKey) return null;
 
-  // Find that date's weekday lectures and existing attendance/cancellation choices.
   const dateObj = new Date(dateKey + 'T00:00:00');
-  const weekday = getWeekdayIndex(dateObj);
-  const lecturesToday = state.timetable[weekday] || [];
-  const cancelledIds = new Set(state.cancellations[dateKey] || []);
   const existingLog = state.logs[dateKey];
 
   const dateLabel = dateObj.toLocaleDateString('en-US', {
@@ -43,7 +37,7 @@ export default function AttendanceModal({
     onClose();
   }
 
-  // Render day actions first, followed by optional bunk reason and lecture toggles.
+  // Render only day-level attendance actions; weekly timetable data is independent.
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -107,36 +101,6 @@ export default function AttendanceModal({
               </View>
             )}
 
-            {lecturesToday.length > 0 && (
-              <View style={styles.lectureSection}>
-                <View style={styles.lectureHeaderRow}>
-                  <Ionicons name="alert-circle-outline" size={14} color={colors.amber} />
-                  <Text style={styles.lectureHeaderText}>
-                    {WEEKDAY_LABELS[weekday]}'s Lectures — mark cancelled if the professor is absent
-                  </Text>
-                </View>
-                {lecturesToday.map((lec) => {
-                  const isCancelled = cancelledIds.has(lec.id);
-                  return (
-                    <View key={lec.id} style={styles.lectureRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.lectureName}>{lec.subject}</Text>
-                        <Text style={styles.lectureTime}>{lec.time}</Text>
-                      </View>
-                      <Text style={[styles.cancelledLabel, { opacity: isCancelled ? 1 : 0.4 }]}>
-                        {isCancelled ? 'Cancelled' : 'Scheduled'}
-                      </Text>
-                      <Switch
-                        value={isCancelled}
-                        onValueChange={() => toggleLectureCancelled(dateKey!, lec.id)}
-                        trackColor={{ false: '#374151', true: colors.amber }}
-                        thumbColor="#fff"
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-            )}
           </ScrollView>
         </View>
       </View>
@@ -194,14 +158,4 @@ const styles = StyleSheet.create({
   },
   confirmBunkBtn: { backgroundColor: colors.red, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
   confirmBunkText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  lectureSection: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
-  lectureHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  lectureHeaderText: { fontSize: 10, color: colors.amber, flex: 1, fontWeight: '600' },
-  lectureRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
-  },
-  lectureName: { fontSize: 13, fontWeight: '700', color: '#E5E7EB' },
-  lectureTime: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
-  cancelledLabel: { fontSize: 9, fontWeight: '700', color: colors.amber, width: 60, textAlign: 'right' },
 });

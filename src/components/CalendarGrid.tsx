@@ -47,25 +47,24 @@ export default function CalendarGrid({ onSelectDate }: { onSelectDate: (dateKey:
   const rangeEndKey = state.semesterEndDate || null;
   const hasRange = !!(rangeStartKey && rangeEndKey);
 
-  // Build blank leading cells plus every day, including range/cancellation markers.
+  // Build blank leading cells plus every day in the visible month.
   const cells = useMemo(() => {
     const firstDayJs = new Date(year, month, 1).getDay(); // 0=Sun
     const leadingBlanks = firstDayJs === 0 ? 6 : firstDayJs - 1;
     const totalDays = new Date(year, month + 1, 0).getDate();
 
-    const items: { key: string; day: number; type?: string; hasCancelled?: boolean; outOfRange: boolean }[] = [];
+    const items: { key: string; day: number; type?: string; outOfRange: boolean }[] = [];
     for (let i = 0; i < leadingBlanks; i++) items.push({ key: `blank-${i}`, day: 0, outOfRange: false });
 
     for (let day = 1; day <= totalDays; day++) {
       const d = new Date(year, month, day);
       const key = formatDateKey(d);
       const log = state.logs[key];
-      const hasCancelled = (state.cancellations[key] || []).length > 0;
       const outOfRange = hasRange ? (key < rangeStartKey! || key > rangeEndKey!) : false;
-      items.push({ key, day, type: log?.type, hasCancelled, outOfRange });
+      items.push({ key, day, type: log?.type, outOfRange });
     }
     return items;
-  }, [year, month, state.logs, state.cancellations, hasRange, rangeStartKey, rangeEndKey]);
+  }, [year, month, state.logs, hasRange, rangeStartKey, rangeEndKey]);
 
   // Prevent logging outside configured semester dates; otherwise open the modal.
   function handlePress(cell: { key: string; outOfRange: boolean }) {
@@ -126,7 +125,6 @@ export default function CalendarGrid({ onSelectDate }: { onSelectDate: (dateKey:
                 >
                   {cell.day}
                 </Text>
-                {cell.hasCancelled && <View style={styles.cancelDot} />}
               </TouchableOpacity>
             )
           )}
@@ -137,7 +135,6 @@ export default function CalendarGrid({ onSelectDate }: { onSelectDate: (dateKey:
         <Legend color={colors.green} label="Attended" />
         <Legend color={colors.red} label="Bunk" />
         <Legend color={colors.blue} label="Official" />
-        <Legend color={colors.amber} label="Prof Absent" />
       </View>
     </View>
   );
@@ -171,9 +168,6 @@ const styles = StyleSheet.create({
   dayBtn: { borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   dayBtnOutOfRange: { opacity: 0.35 },
   dayText: { fontSize: 12, fontWeight: '700' },
-  cancelDot: {
-    position: 'absolute', top: 3, right: 3, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber,
-  },
   legendRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     backgroundColor: 'rgba(24,18,43,0.35)', padding: 10, borderRadius: 12,

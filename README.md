@@ -5,8 +5,8 @@
 VoltTrack is a mobile attendance tracker for a college semester. You can set the
 semester dates and minimum attendance target, mark each day as attended, bunked,
 or an official holiday, and see the calculated percentage and safe bunks left.
-The optional timetable feature changes the calculation from one unit per day to
-one unit per lecture. A cancelled lecture is removed from the calculation.
+The optional timetable is an independent weekly reference for recurring classes
+and times. It never changes attendance calculations or the daily attendance log.
 
 ### How The Project Is Organized
 
@@ -24,10 +24,9 @@ lecture or marking a day as attended. Screens use `useApp()` to access it.
 This means data remains after the app is closed, but it is stored only on the
 device until the user exports a backup.
 
-`src/utils/calculations.ts` contains the attendance mathematics. It supports
-day mode (the original behavior) and lecture mode (used after a timetable has
-at least one lecture). `src/utils/notifications.ts` schedules the daily native
-reminder using Expo Notifications.
+`src/utils/calculations.ts` contains the day-based attendance mathematics.
+`src/utils/notifications.ts` schedules the daily native reminder using Expo
+Notifications.
 
 `src/theme.ts` contains shared colors and the attendance progress gradient.
 
@@ -118,16 +117,11 @@ who are new to coding.
 
 Full mobile rebuild of the VoltTrack web app, plus one new feature:
 
-**Timetable Cancellation Toggle** — set up a weekly timetable (Settings ➜ Timetable tab),
-and every date you tap open in the calendar will show that weekday's lectures with a
-"Cancelled" switch per lecture. Flip it on when the professor is absent / class is
-cancelled and that specific lecture is fully excluded from your total working classes,
-attended count, and percentage — it never counts against or for you.
-
-Once you add at least one lecture to the timetable, the app automatically switches
-from day-based attendance (like the original web app) to lecture-based attendance,
-which is more accurate for a multi-lecture-per-day college schedule. If you never touch
-the Timetable tab, the app behaves exactly like the original web version (day-based).
+**Independent Weekly Timetable** — set up recurring classes and times in the
+Timetable tab. The timetable is for reference only: subjects do not appear in the
+daily attendance modal and adding classes never changes attendance calculations.
+Weekly timetable data is included in JSON backups and restored with the rest of
+the app state.
 
 ## Setup in Termux
 
@@ -190,5 +184,4 @@ EOF
 ## What's new
 
 - **Timetable tab** (4th nav item) — define recurring lectures per weekday
-- **Per-lecture "Cancelled" toggle** inside the day-log modal
-- Analytics screen adds a "Cancelled Lectures" stat once lecture mode is active
+- Weekly timetable remains available as a separate planning feature
