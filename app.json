@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "VoltTrack",
+    "slug": "volttrack",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0813",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "backgroundColor": "#0B0813",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "android": {
+      "package": "com.kunal.volttrack",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0813"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM"
+      ]
+    },
+    "plugins": [
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}

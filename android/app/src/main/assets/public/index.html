@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoltTrack // EE Attendance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0B0813;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(177, 175, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 138, 174, 0.08) 0%, transparent 40%);
+            min-height: 100vh;
+            color: #F3F4F6;
+        }
+        .glass-card {
+            background: rgba(24, 18, 43, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 138, 174, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #B1AFFF 0%, #FF8AAE 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .calendar-day { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .app-screen { display: none; }
+        .app-screen.active { display: block; }
+    </style>
+</head>
+<body class="pb-28">
+
+    <header class="w-full max-w-md mx-auto px-4 pt-6 pb-2 flex justify-between items-center">
+        <div>
+            <p class="text-xs text-gray-400 font-medium tracking-wider uppercase">B.Tech Electrical Eng.</p>
+            <h1 class="text-2xl font-bold tracking-tight">Volt<span class="text-gradient">Track</span></h1>
+        </div>
+        <div class="w-10 h-10 rounded-full glass-card flex items-center justify-center border border-pink-500/20">
+            <i class="fa-solid fa-bolt text-[#FF8AAE]"></i>
+        </div>
+    </header>
+
+    <section class="w-full max-w-md mx-auto px-4 mt-4">
+        <div class="glass-card rounded-3xl p-6 relative overflow-hidden">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xs font-semibold tracking-widest uppercase text-gray-400">Projected Final %</h2>
+                    <div class="flex items-baseline space-x-2 mt-1">
+                        <span id="attendance-percentage-text" class="text-4xl font-extrabold tracking-tight text-white">0%</span>
+                        <span id="attendance-status-pill" class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">Low</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-2">Target: <span id="lbl-target-percentage">80</span>% | If you bunk all remaining days</p>
+                </div>
+
+                <div class="relative flex items-center justify-center w-24 h-24">
+                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                        <circle class="text-gray-800" stroke-width="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50"/>
+                        <circle id="progress-circle" class="text-[#FF8AAE] progress-ring__circle" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50"/>
+                    </svg>
+                    <div id="lbl-inner-target" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-300">80% Min</div>
+                </div>
+            </div>
+
+            <div class="mt-5 p-4 bg-[#0B0813]/60 rounded-2xl border border-dashed border-[#B1AFFF]/30 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-xl bg-[#B1AFFF]/10 flex items-center justify-center text-[#B1AFFF]">
+                        <i class="fa-solid fa-umbrella-beach"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-200">Safe Holidays Left</h4>
+                        <p class="text-xs text-gray-400">Total remaining you can afford</p>
+                    </div>
+                </div>
+                <div id="holiday-shield-count" class="text-2xl font-black text-[#FF8AAE] px-3 py-1 glass-card rounded-xl">0</div>
+            </div>
+        </div>
+    </section>
+
+    <main class="w-full max-w-md mx-auto px-4 mt-6">
+        <!-- SCREEN 1: TRACKER -->
+        <div id="screen-tracker" class="app-screen active space-y-4">
+            <div class="flex justify-between items-center px-1">
+                <h3 class="text-sm font-bold tracking-wider text-gray-400 uppercase">Attendance Calendar</h3>
+                <div class="flex items-center space-x-2">
+                    <button onclick="changeMonth(-1)" class="w-7 h-7 rounded-lg glass-card flex items-center justify-center text-xs hover:text-[#FF8AAE]"><i class="fa-solid fa-chevron-left"></i></button>
+                    <span id="calendar-month-title" class="text-sm font-semibold text-gray-200 min-w-[90px] text-center">Month YYYY</span>
+                    <button onclick="changeMonth(1)" class="w-7 h-7 rounded-lg glass-card flex items-center justify-center text-xs hover:text-[#FF8AAE]"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="glass-card rounded-2xl p-4">
+                <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-bold text-gray-500 mb-2">
+                    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+                </div>
+                <div id="calendar-days-grid" class="grid grid-cols-7 gap-2"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-gray-400 bg-[#18122B]/40 p-3 rounded-xl border border-white/5">
+                <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span> <span>Attended</span></div>
+                <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> <span>Bunk</span></div>
+                <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> <span>Official</span></div>
+                <div class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-gray-700"></span> <span>None</span></div>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: ANALYTICS -->
+        <div id="screen-analytics" class="app-screen space-y-4">
+            <h3 class="text-sm font-bold tracking-wider text-gray-400 uppercase px-1">Analytics Dashboard</h3>
+            <div class="glass-card rounded-2xl p-5 space-y-4">
+                <h4 class="text-xs font-semibold tracking-wider uppercase text-gray-400">Semester Track Projection</h4>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs text-gray-300 mb-1">
+                            <span>Valid Working Days</span>
+                            <span id="analytics-total" class="font-bold text-white">0</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                            <div class="bg-[#B1AFFF] h-full rounded-full w-full"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs text-gray-300 mb-1">
+                            <span>Attended Days So Far</span>
+                            <span id="analytics-attended" class="font-bold text-green-400">0</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                            <div id="bar-attended" class="bg-green-500 h-full rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs text-gray-300 mb-1">
+                            <span>Personal Holidays Logged</span>
+                            <span id="analytics-holidays" class="font-bold text-red-400">0</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
+                            <div id="bar-holidays" class="bg-red-500 h-full rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: SETTINGS -->
+        <div id="screen-settings" class="app-screen space-y-6">
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold tracking-wider text-gray-400 uppercase px-1">Academic Control Center</h3>
+                <div class="glass-card rounded-2xl p-5 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-gray-400 mb-2">Semester Start</label>
+                            <input type="date" id="input-start-date" class="w-full bg-[#0B0813] border border-pink-500/20 rounded-xl px-2 py-3 text-xs text-white focus:outline-none focus:border-[#FF8AAE] [color-scheme:dark]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-gray-400 mb-2">Semester End</label>
+                            <input type="date" id="input-end-date" class="w-full bg-[#0B0813] border border-pink-500/20 rounded-xl px-2 py-3 text-xs text-white focus:outline-none focus:border-[#FF8AAE] [color-scheme:dark]">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-400 mb-2">Required Minimum Attendance %</label>
+                        <input type="number" id="input-target-percent" value="80" min="1" max="100" class="w-full bg-[#0B0813] border border-pink-500/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF8AAE]">
+                    </div>
+
+                    <!-- NEW: APP NOTIFICATION REMINDER -->
+                    <div class="pt-2 border-t border-white/10">
+                        <label class="block text-xs font-bold uppercase text-[#FF8AAE] mb-2 flex justify-between">
+                            <span>Daily App Reminder Time</span>
+                            <i class="fa-regular fa-bell"></i>
+                        </label>
+                        <input type="time" id="input-reminder-time" class="w-full bg-[#0B0813] border border-pink-500/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF8AAE] [color-scheme:dark]">
+                        <p class="text-[10px] text-gray-400 mt-2">You will receive a native push notification at this time every day to log attendance.</p>
+                    </div>
+
+                    <button onclick="saveConfigurationSettings()" class="w-full bg-gradient-to-r from-[#B1AFFF] to-[#FF8AAE] text-[#0B0813] font-bold text-sm py-3 rounded-xl shadow-lg shadow-pink-500/20 hover:opacity-90 transition mt-2">
+                        Save Parameters & Reminders
+                    </button>
+                </div>
+            </div>
+            
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold tracking-wider text-gray-400 uppercase px-1">Data Backup</h3>
+                <div class="glass-card rounded-2xl p-5 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="exportBackupDataFile()" class="flex items-center justify-center space-x-2 bg-gray-900 border border-white/10 text-gray-200 text-xs font-bold py-3 rounded-xl">
+                            <i class="fa-solid fa-download text-[#B1AFFF]"></i><span>Backup</span>
+                        </button>
+                        <label class="flex items-center justify-center space-x-2 bg-gray-900 border border-white/10 text-gray-200 text-xs font-bold py-3 rounded-xl cursor-pointer">
+                            <i class="fa-solid fa-upload text-[#FF8AAE]"></i><span>Restore</span>
+                            <input type="file" id="import-file-handler" accept="*/*" onchange="importBackupDataFile(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="attendance-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-sm rounded-3xl p-6 space-y-4 border border-white/10">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-base font-bold text-white">Log Daily Session</h3>
+                    <p id="modal-date-label" class="text-xs text-gray-400">Date</p>
+                </div>
+                <button onclick="closeAttendanceModal()" class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-2">
+                <button onclick="submitAttendanceRecord('present')" class="flex flex-col items-center justify-center p-3 rounded-2xl bg-green-950/20 border border-green-500/30 text-green-400">
+                    <i class="fa-solid fa-circle-check text-xl mb-1"></i><span class="text-[10px] font-bold">Attended</span>
+                </button>
+                <button onclick="selectHolidayOption()" class="flex flex-col items-center justify-center p-3 rounded-2xl bg-red-950/20 border border-red-500/30 text-red-400">
+                    <i class="fa-solid fa-circle-xmark text-xl mb-1"></i><span class="text-[10px] font-bold">Bunk</span>
+                </button>
+                <button onclick="submitAttendanceRecord('official')" class="flex flex-col items-center justify-center p-3 rounded-2xl bg-blue-950/20 border border-blue-500/30 text-blue-400">
+                    <i class="fa-solid fa-building-columns text-xl mb-1"></i><span class="text-[10px] font-bold">Official Off</span>
+                </button>
+            </div>
+            <div id="clear-option-container" class="hidden pt-1">
+                <button onclick="submitAttendanceRecord('clear')" class="w-full bg-gray-800 text-gray-400 text-xs py-2 rounded-xl">Clear Day</button>
+            </div>
+            <div id="holiday-reason-container" class="hidden space-y-2 pt-2 border-t border-white/5">
+                <input type="text" id="input-holiday-reason" placeholder="Reason..." class="w-full bg-[#0B0813] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white">
+                <button onclick="submitAttendanceRecord('holiday')" class="w-full bg-red-500 text-white font-bold text-xs py-2.5 rounded-xl">Confirm Bunk</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAV -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto px-6 py-4 glass-card rounded-t-3xl border-t border-white/10 z-50 flex justify-between items-center">
+        <button id="nav-tracker" onclick="navigateToScreen('tracker')" class="flex flex-col items-center space-y-1 text-[#FF8AAE] nav-tab-btn">
+            <i class="fa-solid fa-calendar-day text-lg"></i><span class="text-[10px] font-semibold">Tracker</span>
+        </button>
+        <button id="nav-analytics" onclick="navigateToScreen('analytics')" class="flex flex-col items-center space-y-1 text-gray-500 nav-tab-btn">
+            <i class="fa-solid fa-chart-pie text-lg"></i><span class="text-[10px] font-medium">Analytics</span>
+        </button>
+        <button id="nav-settings" onclick="navigateToScreen('settings')" class="flex flex-col items-center space-y-1 text-gray-500 nav-tab-btn">
+            <i class="fa-solid fa-sliders text-lg"></i><span class="text-[10px] font-medium">Settings</span>
+        </button>
+    </nav>
+
+    <script>
+        const state = {
+            semesterStartDate: "", 
+            semesterEndDate: "",   
+            requiredAttendancePercent: 80,
+            reminderTime: "", // NEW STATE FOR NOTIFICATIONS
+            currentYear: new Date().getFullYear(),
+            currentMonth: new Date().getMonth(), 
+            selectedDateKey: null,
+            logs: {} 
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadFromLocalStorageEngine();
+            buildInteractiveCalendarGrid();
+            runCalculationsEngine();
+        });
+
+        function saveToLocalStorageEngine() {
+            localStorage.setItem("volttrack_state_v5", JSON.stringify({
+                semesterStartDate: state.semesterStartDate,
+                semesterEndDate: state.semesterEndDate,
+                requiredAttendancePercent: state.requiredAttendancePercent,
+                reminderTime: state.reminderTime,
+                logs: state.logs
+            }));
+        }
+
+        function loadFromLocalStorageEngine() {
+            const cache = localStorage.getItem("volttrack_state_v5");
+            if (cache) {
+                try {
+                    const parsed = JSON.parse(cache);
+                    state.semesterStartDate = parsed.semesterStartDate || "";
+                    state.semesterEndDate = parsed.semesterEndDate || "";
+                    state.requiredAttendancePercent = parsed.requiredAttendancePercent || 80;
+                    state.reminderTime = parsed.reminderTime || "";
+                    state.logs = parsed.logs || {};
+                    
+                    document.getElementById("input-start-date").value = state.semesterStartDate;
+                    document.getElementById("input-end-date").value = state.semesterEndDate;
+                    document.getElementById("input-target-percent").value = state.requiredAttendancePercent;
+                    document.getElementById("input-reminder-time").value = state.reminderTime;
+                } catch (e) { console.error("Cache parsing mismatch:", e); }
+            }
+        }
+
+        // --- NEW NATIVE NOTIFICATION LOGIC ---
+        async function scheduleAppNotification(timeString) {
+            // Check if app is running natively in Capacitor
+            if (window.Capacitor && window.Capacitor.Plugins.LocalNotifications) {
+                const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+                
+                // Request permissions (important for Android 13+)
+                let permStatus = await LocalNotifications.checkPermissions();
+                if (permStatus.display !== 'granted') {
+                    await LocalNotifications.requestPermissions();
+                }
+
+                // Clear any existing reminders
+                await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
+
+                if (timeString) {
+                    const [hour, minute] = timeString.split(':').map(Number);
+                    
+                    // Schedule new daily repeating notification
+                    await LocalNotifications.schedule({
+                        notifications: [
+                            {
+                                title: "VoltTrack Attendance",
+                                body: "Did you attend all your classes today? Log it now to keep your projection accurate!",
+                                id: 1,
+                                schedule: { 
+                                    on: { hour: hour, minute: minute }, 
+                                    allowWhileIdle: true,
+                                    repeats: true 
+                                }
+                            }
+                        ]
+                    });
+                }
+            }
+        }
+        // ------------------------------------
+
+        async function saveConfigurationSettings() {
+            const startDate = document.getElementById("input-start-date").value;
+            const endDate = document.getElementById("input-end-date").value;
+            const inputPercent = parseInt(document.getElementById("input-target-percent").value);
+            const reminderTime = document.getElementById("input-reminder-time").value;
+
+            state.semesterStartDate = startDate;
+            state.semesterEndDate = endDate;
+            state.requiredAttendancePercent = inputPercent;
+            state.reminderTime = reminderTime;
+
+            saveToLocalStorageEngine();
+            runCalculationsEngine();
+            
+            // Trigger native notification schedule
+            await scheduleAppNotification(reminderTime);
+
+            alert("Academic configurations and reminders saved successfully!");
+            navigateToScreen('tracker');
+        }
+
+        // --- UI & Calculation logic remains identical to previous version ---
+        function exportBackupDataFile() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `volttrack_backup.json`);
+            document.body.appendChild(dl); dl.click(); dl.remove();
+        }
+
+        function importBackupDataFile(event) {
+            const input = event.target;
+            const reader = new FileReader();
+            reader.onload = function(){
+                try {
+                    const importedState = JSON.parse(reader.result);
+                    const targetData = importedState.logs ? importedState : null;
+                    if (targetData && targetData.logs) {
+                        state.semesterStartDate = targetData.semesterStartDate || "";
+                        state.semesterEndDate = targetData.semesterEndDate || "";
+                        state.requiredAttendancePercent = parseInt(targetData.requiredAttendancePercent || 80);
+                        state.reminderTime = targetData.reminderTime || "";
+                        state.logs = targetData.logs;
+                        
+                        document.getElementById("input-start-date").value = state.semesterStartDate;
+                        document.getElementById("input-end-date").value = state.semesterEndDate;
+                        document.getElementById("input-target-percent").value = state.requiredAttendancePercent;
+                        document.getElementById("input-reminder-time").value = state.reminderTime;
+                        
+                        saveToLocalStorageEngine();
+                        buildInteractiveCalendarGrid();
+                        runCalculationsEngine();
+                        if(state.reminderTime) scheduleAppNotification(state.reminderTime);
+                        alert("Data backup restored!");
+                    }
+                } catch (err) {}
+                input.value = "";
+            };
+            if(input.files[0]) reader.readAsText(input.files[0]);
+        }
+
+        function navigateToScreen(targetId) {
+            document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(`screen-${targetId}`).classList.add('active');
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+                btn.classList.remove('text-[#FF8AAE]'); btn.classList.add('text-gray-500');
+            });
+            document.getElementById(`nav-${targetId}`).classList.add('text-[#FF8AAE]');
+            if(targetId === 'analytics') renderAnalyticsViewDashboard();
+        }
+
+        function runCalculationsEngine() {
+            let attendedCount = 0, personalHolidayCount = 0, officialHolidayCount = 0;
+            Object.values(state.logs).forEach(log => {
+                if(log.type === 'present') attendedCount++;
+                if(log.type === 'holiday') personalHolidayCount++;
+                if(log.type === 'official') officialHolidayCount++;
+            });
+
+            let baseTotalDays = 90;
+            if (state.semesterStartDate && state.semesterEndDate) {
+                const start = new Date(state.semesterStartDate);
+                const end = new Date(state.semesterEndDate);
+                if (end >= start) baseTotalDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) + 1;
+            }
+
+            const adjustedTotalWorkingDays = Math.max(1, baseTotalDays - officialHolidayCount);
+            const projectedPercentage = Math.round((attendedCount / adjustedTotalWorkingDays) * 100);
+            const absoluteMinimumRequiredClasses = Math.ceil(adjustedTotalWorkingDays * (state.requiredAttendancePercent / 100));
+            const safeHolidaysLeft = (adjustedTotalWorkingDays - absoluteMinimumRequiredClasses) - personalHolidayCount;
+
+            document.getElementById("attendance-percentage-text").innerText = `${projectedPercentage}%`;
+            document.getElementById("lbl-target-percentage").innerText = state.requiredAttendancePercent;
+            document.getElementById("holiday-shield-count").innerText = Math.max(0, safeHolidaysLeft);
+
+            const statusPill = document.getElementById("attendance-status-pill");
+            if(projectedPercentage >= state.requiredAttendancePercent) {
+                statusPill.innerText = "Safe";
+                statusPill.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-green-500/20 text-green-400";
+            } else {
+                statusPill.innerText = "Below Target";
+                statusPill.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400";
+            }
+
+            const circle = document.getElementById("progress-circle");
+            const offset = (circle.r.baseVal.value * 2 * Math.PI) - (Math.min(100, projectedPercentage) / 100) * (circle.r.baseVal.value * 2 * Math.PI);
+            circle.style.strokeDashoffset = offset;
+        }
+
+        function changeMonth(dir) {
+            state.currentMonth += dir;
+            if (state.currentMonth > 11) { state.currentMonth = 0; state.currentYear++; }
+            else if (state.currentMonth < 0) { state.currentMonth = 11; state.currentYear--; }
+            buildInteractiveCalendarGrid();
+        }
+
+        function buildInteractiveCalendarGrid() {
+            const grid = document.getElementById("calendar-days-grid");
+            grid.innerHTML = "";
+            document.getElementById("calendar-month-title").innerText = `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][state.currentMonth]} ${state.currentYear}`;
+
+            const firstDay = new Date(state.currentYear, state.currentMonth, 1).getDay();
+            const totalDays = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
+
+            for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) grid.appendChild(document.createElement("div"));
+
+            for(let day = 1; day <= totalDays; day++) {
+                const dateKey = `${state.currentYear}-${String(state.currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const log = state.logs[dateKey];
+                const btn = document.createElement("button");
+                btn.innerText = day;
+                btn.className = "calendar-day aspect-square rounded-xl flex items-center justify-center text-xs font-bold " + 
+                    (log?.type === 'present' ? "bg-green-500 text-white" : log?.type === 'holiday' ? "bg-red-500 text-white" : log?.type === 'official' ? "bg-blue-500 text-white" : "bg-gray-900/60 text-gray-400 border border-white/5");
+                btn.onclick = () => launchAttendanceModal(dateKey);
+                grid.appendChild(btn);
+            }
+        }
+
+        function launchAttendanceModal(key) {
+            state.selectedDateKey = key;
+            document.getElementById("modal-date-label").innerText = new Date(key).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById("holiday-reason-container").classList.add("hidden");
+            document.getElementById("clear-option-container").classList.toggle("hidden", !state.logs[key]);
+            document.getElementById("attendance-modal").classList.remove("hidden");
+        }
+
+        function closeAttendanceModal() { document.getElementById("attendance-modal").classList.add("hidden"); }
+        function selectHolidayOption() { document.getElementById("holiday-reason-container").classList.remove("hidden"); }
+
+        function submitAttendanceRecord(type) {
+            if(!state.selectedDateKey) return;
+            if (type === 'clear') delete state.logs[state.selectedDateKey];
+            else if (type === 'holiday') state.logs[state.selectedDateKey] = { type, reason: document.getElementById("input-holiday-reason").value || "Personal Bunk" };
+            else state.logs[state.selectedDateKey] = { type };
+            
+            saveToLocalStorageEngine(); buildInteractiveCalendarGrid(); runCalculationsEngine(); closeAttendanceModal();
+        }
+
+        function renderAnalyticsViewDashboard() {
+            let attended = 0, holidays = 0, official = 0;
+            Object.values(state.logs).forEach(d => { if(d.type==='present') attended++; if(d.type==='official') official++; if(d.type==='holiday') holidays++; });
+            
+            let baseTotal = 90;
+            if(state.semesterStartDate && state.semesterEndDate) baseTotal = Math.ceil(Math.abs(new Date(state.semesterEndDate) - new Date(state.semesterStartDate)) / 86400000) + 1;
+            const valid = Math.max(1, baseTotal - official);
+
+            document.getElementById("analytics-total").innerText = valid;
+            document.getElementById("analytics-attended").innerText = attended;
+            document.getElementById("analytics-holidays").innerText = holidays;
+            
+            document.getElementById("bar-attended").style.width = `${Math.min(100, (attended / valid) * 100)}%`;
+            document.getElementById("bar-holidays").style.width = `${Math.min(100, (holidays / valid) * 100)}%`;
+        }
+    </script>
+</body>
+</html>
